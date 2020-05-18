@@ -1,3 +1,5 @@
 ---
 # vars file for nexus3-rest
 nexus_api_url: "{{ nexus_schema }}://{{ nexus_server }}:{{ nexus_port }}{{ nexus_context }}{{ nexus_base_url }}"
+roles_to_update: []
+roles_to_create: []

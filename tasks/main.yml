@@ -1,20 +1,70 @@
 ---
 # tasks file for nexus3-rest
-- name: Set docker repos list
-  set_fact:
-    nexus_repo_docker: "{{ _nexus_repos_docker_defaults | combine(repo_docker_proxy,recursive=True)}}"
-  when: repo_docker_proxy is defined
+- name: Get existing repo
+  uri:
+    url: "{{ nexus_api_url }}/beta/repositories"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 200
+  register: repos
 
-- name: Set maven repos list
-  set_fact:
-    nexus_repo_maven: "{{ _nexus_repos_maven_defaults | combine(repo_maven,recursive=True)}}"
-  when: repo_maven is defined
-
-- name: "Show privileges for {{ repo_name }}"
+- name: debug repos
   debug:
     var:
-      nexus_repo_docker
+      repos.content
+  when: DEBUG|int > 2
+
+- name: Check repo exists
+  set_fact:
+    repo_format: "{{item.format}}"
+    repo_type: "{{item.type}}"
+    repo_name: "{{item.name}}"
+  with_items:
+    "{{ repos.content }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name == repo.name
+
+- name: Set docker repos list
+  set_fact:
+    nexus_repo: "{{ _nexus_repos_defaults[repo.format] | combine(repo, recursive=True) }}"
+
+- name: "Show {{ repo_name }}"
+  debug:
+    var:
+      nexus_repo
   when: DEBUG is defined
+
+- name: "create repo {{ repo.name }}"
+  uri:
+    url: "{{ nexus_api_url }}/beta/repositories/{{ repo.format }}/{{ repo.type }}"
+    method: POST
+    body_format: json
+    body: "{{ nexus_repo }}"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 201
+  when: not repo_name is defined
+
+- name: "update repo {{ repo.name }}"
+  uri:
+    url: "{{ nexus_api_url }}/beta/repositories/{{ repo.format }}/{{ repo.type }}/{{ repo.name }}"
+    method: PUT
+    body_format: json
+    body: "{{ nexus_repo|to_json }}"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 204
+  when: repo_name is defined
 
 - name: Parse roles
   set_fact:
@@ -24,8 +74,8 @@
         {% set privN = [] -%}
         {% for priv in DSO_roles[role].privileges -%}
           {% set ignored = privN.append(priv.format(
-            tech="{{ repo_tech }}", 
-            repo="{{ repo_name }}")) -%}
+            tech="{{ repo.format }}", 
+            repo="{{ repo.name }}")) -%}
         {% endfor -%}
         {% set ingored = result.append({'id': role, 
           'name': role, 
@@ -60,7 +110,7 @@
       {% set ingored = result.append({'id': item.item.id, 
         'name': item.item.name, 
         'privileges': item.item.privileges | union(item.json.privileges) | unique }) -%}
-      {{ result }}
+      {{ roles_to_update + [result] }}
   with_items:
     "{{ roles.results }}"
   loop_control:
@@ -76,7 +126,7 @@
         'description': item.item.description, 
         'source': item.item.source, 
         'privileges': item.item.privileges }) -%}
-      {{ result }}
+      {{ roles_to_create + [result] }}
   with_items:
     "{{ roles.results }}"
   loop_control:
@@ -94,3 +144,35 @@
     var:
       roles_to_create
   when: DEBUG is defined
+
+- name: "Create roles"
+  uri:
+    url: "{{ nexus_api_url }}/beta/security/roles"
+    method: POST
+    body_format: json
+    body: "{{ item|to_json }}"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 200
+  with_items:
+    "{{ roles_to_create }}"
+  when: roles_to_create is defined and roles_to_create|length > 0
+
+- name: "Update roles"
+  uri:
+    url: "{{ nexus_api_url }}/beta/security/roles/{{ item.id }}"
+    method: PUT
+    body_format: json
+    body: "{{ item|to_json }}"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 204
+  with_items:
+    "{{ roles_to_update }}"
+  when: roles_to_update is defined and roles_to_update|length > 0
