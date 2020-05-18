@@ -1,0 +1,142 @@
+---
+# defaults file for nexus3-rest
+nexus_server: localhost
+nexus_schema: http
+nexus_port: 8080
+nexus_context: /
+nexus_base_url: service/rest
+
+nexus_blob_names:           # Splited blob name list @ blob_vars.yml
+  pypi:
+    blob: 'default'
+  raw:
+    blob: 'default'
+  docker:
+    blob: 'default'
+  ruby:
+    blob: 'default'
+  bower:
+    blob: 'default'
+  npm:
+    blob: 'default'
+  nuget:
+    blob: 'default'
+  mvn:
+    blob: 'default'
+  gitlfs:
+    blob: 'default'
+  yum:
+    blob: 'default'
+  apt:
+    blob: 'default'
+
+# docker support
+_nexus_repos_docker_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.docker.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  proxy:
+    contentMaxAge: 1440
+    metadataMaxAge: 1440
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  httpClient:
+    blocked: false
+    autoBlock: true
+  docker:
+    v1Enabled: false
+    forceBasicAuth: true
+  dockerProxy:
+    indexType: REGISTRY
+
+# maven support
+_nexus_repos_maven_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.mvn.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  proxy:
+    contentMaxAge: -1
+    metadataMaxAge: 1440
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  httpClient:
+    blocked: false
+    autoBlock: true
+  maven:
+    versionPolicy: release  # release, snapshot or mixed
+    layoutPolicy: strict  # strict or permissive
+
+# npm support
+_nexus_repos_npm_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.npm.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  proxy:
+    contentMaxAge: 1440
+    metadataMaxAge: 1440
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  httpClient:
+    blocked: false
+    autoBlock: true
+    
+# pypi support ...
+_nexus_repos_pypi_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.pypi.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  proxy:
+    contentMaxAge: 1440
+    metadataMaxAge: 1440
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  httpClient:
+    blocked: false
+    autoBlock: true
+  
+# raw repo support not yet!
+_nexus_repos_raw_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.raw.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  raw:
+    versionPolicy: release  # release, snapshot or mixed
+    layoutPolicy: strict  # strict or permissive
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  proxy:
+    contentMaxAge: 1440
+    metadataMaxAge: 1440
+
+# yum proxy support not yet!
+_nexus_repos_yum_defaults:
+  online: true
+  storage:
+    blobStoreName: "{{ nexus_blob_names.yum.blob }}"
+    strictContentTypeValidation: true
+    writePolicy: allow
+  yum:
+    versionPolicy: release  # release, snapshot or mixed
+    layoutPolicy: strict  # strict or permissive
+  negativeCache:
+    enabled: true
+    timeToLive: 1440
+  proxy:
+    contentMaxAge: 1440
+    metadataMaxAge: 1440
+

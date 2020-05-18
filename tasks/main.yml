@@ -1,0 +1,96 @@
+---
+# tasks file for nexus3-rest
+- name: Set docker repos list
+  set_fact:
+    nexus_repo_docker: "{{ _nexus_repos_docker_defaults | combine(repo_docker_proxy,recursive=True)}}"
+  when: repo_docker_proxy is defined
+
+- name: Set maven repos list
+  set_fact:
+    nexus_repo_maven: "{{ _nexus_repos_maven_defaults | combine(repo_maven,recursive=True)}}"
+  when: repo_maven is defined
+
+- name: "Show privileges for {{ repo_name }}"
+  debug:
+    var:
+      nexus_repo_docker
+  when: DEBUG is defined
+
+- name: Parse roles
+  set_fact:
+    nexus_roles: |
+      {% set result = [] -%}
+      {% for role in DSO_roles.keys() -%}
+        {% set privN = [] -%}
+        {% for priv in DSO_roles[role].privileges -%}
+          {% set ignored = privN.append(priv.format(
+            tech="{{ repo_tech }}", 
+            repo="{{ repo_name }}")) -%}
+        {% endfor -%}
+        {% set ingored = result.append({'id': role, 
+          'name': role, 
+          'description': DSO_roles[role].description,
+          'source': 'default', 
+          'privileges': privN }) -%}
+      {% endfor -%}
+      {{ result }}
+
+- name: Check existing roles
+  uri:
+    url: "{{ nexus_api_url }}/beta/security/roles/{{ item.id }}"
+    user: "{{ nexus_user }}"
+    password: "{{ nexus_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code:
+    - 200
+    - 404
+  loop:
+    "{{ nexus_roles }}"
+  register: roles
+
+- name: "Show roles"
+  debug: var=roles
+  when: DEBUG is defined and DEBUG|int > 1
+
+- name: "Update privileges for {{ repo_name }}"
+  set_fact:
+    roles_to_update: |
+      {% set result = [] -%}
+      {% set ingored = result.append({'id': item.item.id, 
+        'name': item.item.name, 
+        'privileges': item.item.privileges | union(item.json.privileges) | unique }) -%}
+      {{ result }}
+  with_items:
+    "{{ roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.status == 200
+
+- name: "Create privileges for {{ repo_name }}"
+  set_fact:
+    roles_to_create: |
+      {% set result = [] -%}
+      {% set ingored = result.append({'id': item.item.id, 
+        'name': item.item.name, 
+        'description': item.item.description, 
+        'source': item.item.source, 
+        'privileges': item.item.privileges }) -%}
+      {{ result }}
+  with_items:
+    "{{ roles.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.status == 404
+
+- name: "Show privileges for {{ repo_name }}"
+  debug:
+    var:
+      roles_to_update
+  when: DEBUG is defined
+
+- name: "Show privileges for {{ repo_name }}"
+  debug:
+    var:
+      roles_to_create
+  when: DEBUG is defined
