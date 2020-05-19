@@ -72,13 +72,13 @@
       {% set result = [] -%}
       {% for role in roles.keys() -%}
         {% set privN = [] -%}
-        {% if not roles[role].only is defined -%}
+        {% if not roles[role].restrict is defined -%}
           {% for priv in roles[role].privileges -%}
             {% set ignored = privN.append(priv.format(
               tech="{{ repo.format }}", 
               repo="{{ repo.name }}")) -%}
           {% endfor -%}
-        {% elif roles[role].only in repo.name -%}
+        {% elif roles[role].restrict in repo.name -%}
         {% for priv in roles[role].privileges -%}
           {% set ignored = privN.append(priv.format(
             tech="{{ repo.format }}", 

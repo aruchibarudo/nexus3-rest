@@ -40,7 +40,7 @@ roles: # roles.yml
   Developer:
     description: "Разработчик"
     source: default
-    only: whitelist # will be used if repo.name contain this
+    restrict: whitelist # will be used if repo.name contain this
     privileges:
     - nx-repository-view-{tech}-{repo}-browse
     - nx-repository-view-{tech}-{repo}-read
