@@ -15,7 +15,7 @@
   debug:
     var:
       repos.content
-  when: DEBUG|int > 2
+  when: DEBUG is defined and DEBUG|int > 2
 
 - name: Check repo exists
   set_fact:
@@ -70,17 +70,25 @@
   set_fact:
     nexus_roles: |
       {% set result = [] -%}
-      {% for role in DSO_roles.keys() -%}
+      {% for role in roles.keys() -%}
         {% set privN = [] -%}
-        {% for priv in DSO_roles[role].privileges -%}
+        {% if not roles[role].only is defined -%}
+          {% for priv in roles[role].privileges -%}
+            {% set ignored = privN.append(priv.format(
+              tech="{{ repo.format }}", 
+              repo="{{ repo.name }}")) -%}
+          {% endfor -%}
+        {% elif roles[role].only in repo.name -%}
+        {% for priv in roles[role].privileges -%}
           {% set ignored = privN.append(priv.format(
             tech="{{ repo.format }}", 
             repo="{{ repo.name }}")) -%}
-        {% endfor -%}
+          {% endfor -%}
+        {% endif -%}
         {% set ingored = result.append({'id': role, 
           'name': role, 
-          'description': DSO_roles[role].description,
-          'source': 'default', 
+          'description': roles[role].description,
+          'source': roles[role].source, 
           'privileges': privN }) -%}
       {% endfor -%}
       {{ result }}
@@ -97,10 +105,12 @@
     - 404
   loop:
     "{{ nexus_roles }}"
-  register: roles
+  loop_control:
+    label: "{{ item.name }}"
+  register: roles_rc
 
 - name: "Show roles"
-  debug: var=roles
+  debug: var=roles_rc
   when: DEBUG is defined and DEBUG|int > 1
 
 - name: "Update privileges for {{ repo_name }}"
@@ -112,10 +122,10 @@
         'privileges': item.item.privileges | union(item.json.privileges) | unique }) -%}
       {{ roles_to_update + [result] }}
   with_items:
-    "{{ roles.results }}"
+    "{{ roles_rc.results }}"
   loop_control:
     label: "{{ item.item.name }}"
-  when: item.status == 200
+  when: item.status == 200 and (item.json.privileges | sort) != (item.item.privileges | union(item.json.privileges) | unique | sort)
 
 - name: "Create privileges for {{ repo_name }}"
   set_fact:
@@ -128,7 +138,7 @@
         'privileges': item.item.privileges }) -%}
       {{ roles_to_create + [result] }}
   with_items:
-    "{{ roles.results }}"
+    "{{ roles_rc.results }}"
   loop_control:
     label: "{{ item.item.name }}"
   when: item.status == 404
@@ -159,7 +169,16 @@
     - 200
   with_items:
     "{{ roles_to_create }}"
+  loop_control:
+    label: "{{ item.id }}"
   when: roles_to_create is defined and roles_to_create|length > 0
+  register: rc
+  changed_when: rc.status == 200
+
+- name: "Debug"
+  debug:
+    var: rc
+  when: DEBUG is defined
 
 - name: "Update roles"
   uri:
@@ -175,4 +194,13 @@
     - 204
   with_items:
     "{{ roles_to_update }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: rc
   when: roles_to_update is defined and roles_to_update|length > 0
+  changed_when: rc.status == 204
+
+- name: "Debug"
+  debug:
+    var: rc
+  when: DEBUG is defined

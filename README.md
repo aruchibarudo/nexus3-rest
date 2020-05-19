@@ -1,38 +1,81 @@
-Role Name
+nexus3-rest
 =========
 
-A brief description of the role goes here.
+Control nexus3-oss by REST API. Doesn't work yum and raw repos - REST API limitation
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+Installed nexus3 repository manager. YAML file with roles.
 
 Role Variables
 --------------
+```yml
+nexus_server: localhost # nexus server
+nexus_schema: http # http/https
+nexus_port: 8080
+nexus_context: /
+nexus_base_url: service/rest # base url for api
+DEBUG: [1:3] # debug variables
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+repo: # repo.yml
+  name: "docker-hub-external-dso"
+  type: "proxy"
+  format: "docker"
+  online: false
+  proxy:
+    remoteUrl: https://registry-1.docker.io
+  docker:
+    v1Enabled: true
+  dockerProxy:
+    indexType: HUB
+
+roles: # roles.yml
+  Nexus_Base_Role:
+    description: "Базвовая роль нексус"
+    source: default
+    privileges:
+    - nx-repository-view-{tech}-{repo}-browse # {tech} -> repo.format, {repo} -> repo.name
+    - nx-search-read
+  Developer:
+    description: "Разработчик"
+    source: default
+    only: whitelist # will be used if repo.name contain this
+    privileges:
+    - nx-repository-view-{tech}-{repo}-browse
+    - nx-repository-view-{tech}-{repo}-read
+    - nx-component-upload
+    - nx-search-read
+    - nx-apikey-all
+```
 
 Dependencies
 ------------
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
+nope
 
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+```yaml
+    - hosts: nexus
+      vars:
+        nexus_server: localhost # nexus server
+        nexus_schema: http # http/https
+        nexus_port: 8080
+        nexus_user: "admin"
+        nexus_password: "changeme"
 
-    - hosts: servers
       roles:
-         - { role: username.rolename, x: 42 }
+        - nexus3-rest
+```
 
-License
--------
-
-BSD
+```bash
+# 
+$ ansible-playbook nexus.yml -i nexus.ini --extra-vars=@roles.yml --extra-vars=@repo.yml
+```
 
 Author Information
 ------------------
 
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+Artem Batalov <archyz@gmail.com>
